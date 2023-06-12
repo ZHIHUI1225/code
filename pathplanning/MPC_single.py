@@ -17,6 +17,7 @@ Plot=env.Plotting()
 bounry_points=Plot.env.boun_point
 obs_points=Plot.env.obs_point
 obs_diagonal_point=Plot.env.obs_diagonal_point
+l=10
 def sigmoid(x):
     return 1 / (1 + ca.exp(-x))
 
@@ -80,7 +81,9 @@ if __name__ == '__main__':
     n_controls = controls.size()[0]
 
     ## rhs
-    rhs = ca.horzcat(v*ca.cos(theta), v*ca.sin(theta))
+    # rhs = ca.horzcat(v*ca.cos(theta), v*ca.sin(theta))
+    # rhs = ca.horzcat(rhs, omega)
+    rhs = ca.horzcat(v*ca.cos(theta)-l*ca.sin(theta)*omega, v*ca.sin(theta)+l*ca.cos(theta)*omega)
     rhs = ca.horzcat(rhs, omega)
     # ##calculate the Derivative of d
     # dd=0
