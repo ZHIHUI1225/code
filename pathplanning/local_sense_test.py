@@ -30,7 +30,7 @@ def calculate_circle_line_intersection(center, radius, startPoint, endPoint):
 
 points = np.array([[30, 30], [70, 30], [70, 70], [30, 70]])
 R = 20  # 感知半径
-V = np.array([20, 15])
+V = np.array([20, 50])
 if V[0] < points[1, 0] and V[0] > points[0, 0] and V[1] < points[3, 1] and V[1] > points[0, 1]:
     pass
 else:
