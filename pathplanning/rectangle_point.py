@@ -3,32 +3,29 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 
-def point_line_distance(point, start, end, is_segment=False):
-    dx = end.x - start.x
-    dy = end.y - start.y
+def point_line_distance(point, start, end):
+    dx = end[0] - start[0]
+    dy = end[1] - start[1] 
     d = dx*dx + dy*dy
-    t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / d
-
-    if not is_segment:
-        p = (start.x + t * dx, start.y + t * dy)
-    else:
-        if d:
-            if t < 0:
-                p = start
-            elif t > 1:
-                p = end
-            else:
-                p = (start.x + t * dx, start.y + t * dy)
+    t = ((point[0] - start[0]) * dx + (point[1] - start[1]) * dy) / d
+    if d:
+        if t < 0:
+            p = start
+        elif t > 1:
+            p = end
         else:
+            p = np.array([start[0]+ t * dx, start[1] + t * dy])
+    else:
             p = start
         
-    dx = point.x - p.x
-    dy = point.y - p.y
-    return math.sqrt(dx*dx + dy*dy)
+    dx = point[0]- p[0]
+    dy = point[1] - p[1]
+    distence=math.sqrt(dx*dx + dy*dy)
+    return [distence,p]
 
 class Rectangle:
     def __init__(self):
-        self.points = np.array([[50, 30], [80, 30], [80, 70], [50, 70]])
+        self.points = np.array([[50, 50], [80, 50], [80, 70], [50, 70]])
         self.senseP=np.zeros((2,2))
         self.flag_in=True
         self.vector=[]
@@ -71,24 +68,64 @@ class Rectangle:
             else:
                 self.senseP[0,:]=self.points[3]
                 self.senseP[1,:]=self.points[1]
+    def EGO(self,P):
+        if np.cross(self.vector[0],P-self.points[0])*np.cross(self.vector[1],P-self.points[3])<=0 and np.cross(self.vector[2],P-self.points[0])*np.cross(self.vector[3],P-self.points[1])<=0:
+            self.flag_in=True
+        else:
+            self.flag_in=False
+        d=np.zeros((4,1))
+        p=np.zeros((4,2))
+        for i in range(3):
+            [d[i],p[i,:]]=point_line_distance(P, self.points[i], self.points[i+1])
+        [d[3],p[3,:]]=point_line_distance(P, self.points[3], self.points[0])
+        min_value = np.min(d)
+        min_index = np.argmin(d)
+        if self.flag_in is True:
+            min_value=-min_value
+        return [min_value,p[min_index,:]]
 
 R=Rectangle()
-x = np.linspace(0, 100, 50)
-y = np.linspace(0, 100, 50)
+x = np.linspace(0, 100, 100)
+y = np.linspace(0, 100, 100)
 Ctheta = np.zeros((len(x), len(y)))
+dCtheta=np.zeros((len(x), len(y)))
+Ctanh = np.zeros((len(x), len(y)))
+dCtanh=np.zeros((len(x), len(y)))
+EGOJ=np.zeros((len(x), len(y)))
+Sf=0.5
+sf=15
 for i in range(len(x)):
     for j in range(len(y)):
         V = np.array([x[i], y[j]])
         R.calculateP(V)
+        [d,points]=R.EGO(V)
+        c=sf-d
+        if c<=0:
+            EGOJ[i,j]=0
+        elif c>0 and c<=sf:
+            EGOJ[i,j]=c**3
+        else:
+            EGOJ[i,j]=3*sf*c**2-3*sf**2*c+sf**3
         if R.flag_in is False:
             Ctheta[i,j]= np.dot(R.senseP[0,:] - V, R.senseP[1,:]  - V) / np.linalg.norm(R.senseP[0,:] - V) / np.linalg.norm(R.senseP[1,:]  - V)
         else:
             Ctheta[i,j]=-1
+        Ctanh[i,j]=math.tanh(3/(Sf+1)*(Ctheta[i,j]+1))
+        l1=np.linalg.norm(R.senseP[0,:] - V)
+        l2=np.linalg.norm(R.senseP[1,:] - V)
+        z1=(R.senseP[0,:] - V)/ l1
+        z2=(R.senseP[1,:] - V) / l2
+        dCtheta_vector=(1/l2-Ctheta[i,j]/l1)*z1+(1/l1-Ctheta[i,j]/l2)*z2
+        dCtheta[i,j]=np.linalg.norm(dCtheta_vector)
+        dCtanh[i,j]=3/(Sf+1)*(1-np.square(math.tanh(3)))*dCtheta[i,j]
 # Create a meshgrid
 X, Y = np.meshgrid(x, y)
 
 # Transpose Ctheta
-Ctheta_t = np.transpose(Ctheta)
+# Ctheta_t = np.transpose(Ctheta)
+# Ctheta_t = np.transpose(Ctanh)
+# Ctheta_t = np.transpose(dCtanh)
+Ctheta_t = np.transpose(EGOJ)
 
 # Create the figure and plot the mesh
 fig = plt.figure()
