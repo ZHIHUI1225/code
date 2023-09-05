@@ -91,8 +91,10 @@ Ctheta = np.zeros((len(x), len(y)))
 dCtheta=np.zeros((len(x), len(y)))
 Ctanh = np.zeros((len(x), len(y)))
 dCtanh=np.zeros((len(x), len(y)))
+dCtanh2=np.zeros((len(x), len(y)))
 EGOJ=np.zeros((len(x), len(y)))
 Sf=0.5
+Smin=-0.2
 sf=15
 for i in range(len(x)):
     for j in range(len(y)):
@@ -110,26 +112,31 @@ for i in range(len(x)):
             Ctheta[i,j]= np.dot(R.senseP[0,:] - V, R.senseP[1,:]  - V) / np.linalg.norm(R.senseP[0,:] - V) / np.linalg.norm(R.senseP[1,:]  - V)
         else:
             Ctheta[i,j]=-1
-        Ctanh[i,j]=math.tanh(3/(Sf+1)*(Ctheta[i,j]+1))
+        Ctanh[i,j]=math.tanh(3/(Sf-Smin)*(Ctheta[i,j]-Smin))
         l1=np.linalg.norm(R.senseP[0,:] - V)
         l2=np.linalg.norm(R.senseP[1,:] - V)
         z1=(R.senseP[0,:] - V)/ l1
         z2=(R.senseP[1,:] - V) / l2
         dCtheta_vector=(1/l2-Ctheta[i,j]/l1)*z1+(1/l1-Ctheta[i,j]/l2)*z2
         dCtheta[i,j]=np.linalg.norm(dCtheta_vector)
-        dCtanh[i,j]=3/(Sf+1)*(1-np.square(math.tanh(3)))*dCtheta[i,j]
+        dCtanh[i,j]=3/(Sf-Smin)*(1-np.square(Ctanh[i,j]))*dCtheta[i,j]
+        dCtanh2[i,j]=3/(Sf-Smin)*(1-np.square(math.tanh(2)))*dCtheta[i,j]
 # Create a meshgrid
 X, Y = np.meshgrid(x, y)
 
 # Transpose Ctheta
-# Ctheta_t = np.transpose(Ctheta)
+Ctheta_t = np.transpose(Ctheta)
 # Ctheta_t = np.transpose(Ctanh)
+# Ctheta_t=np.transpose(dCtheta)
 # Ctheta_t = np.transpose(dCtanh)
-Ctheta_t = np.transpose(EGOJ)
+# Ctheta_t = np.transpose(dCtanh2)
+# Ctheta_t = np.transpose(EGOJ)
 
 # Create the figure and plot the mesh
 fig = plt.figure()
 ax = plt.axes(projection='3d')
 ax.plot_surface(X, Y, Ctheta_t,cmap='viridis', edgecolor='none')
-ax.set_title('3D line plot')
+ax.set_title('cos')
+# ax.set_title('tanhcos')
+# ax.set_title('derivative of tanhcos')
 plt.show()
