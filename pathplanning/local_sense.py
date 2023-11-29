@@ -29,8 +29,8 @@ def calculate_circle_line_intersection(center, radius, startPoint, endPoint):
 
     return P
 points = np.array([[30, 30], [70, 30], [70, 70], [30, 70]])
-x = np.linspace(0, 100, 50)
-y = np.linspace(0, 100, 50)
+x = np.linspace(0, 100, 20)
+y = np.linspace(0, 100, 20)
 R = 25  # 感知半径
 Ctheta = np.zeros((len(x), len(y)))
 

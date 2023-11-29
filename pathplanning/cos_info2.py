@@ -28,6 +28,7 @@ class Rectangle:
         self.points = np.array([[50, 50], [80, 50], [80, 70], [50, 70]])
         self.senseP=np.zeros((2,2))
         self.flag_in=True
+        self.flag_side=True
         self.vector=[]
         self.vector.append(self.points[1]-self.points[0])
         self.vector.append(self.points[2]-self.points[3])
@@ -42,32 +43,41 @@ class Rectangle:
                 self.flag_in=False
                 self.senseP[0,:]=self.points[0]
                 self.senseP[1,:]=self.points[3]
+                self.flag_side=True
             else:
                 self.flag_in=False
                 self.senseP[0,:]=self.points[1]
                 self.senseP[1,:]=self.points[2]
+                self.flag_side=True
         elif np.cross(self.vector[0],P-self.points[0])<0:
             self.flag_in=False
             if np.cross(self.vector[2],P-self.points[0])*np.cross(self.vector[3],P-self.points[1])<=0:
                 self.senseP[0,:]=self.points[0]
                 self.senseP[1,:]=self.points[1]
+                self.flag_side=True
             elif np.cross(self.vector[2],P-self.points[0])>0:
                 self.senseP[0,:]=self.points[3]
                 self.senseP[1,:]=self.points[1]
+                self.flag_side=False
             else:
                 self.senseP[0,:]=self.points[2]
                 self.senseP[1,:]=self.points[0]
+                self.flag_side=False
         else:
             self.flag_in=False
             if np.cross(self.vector[2],P-self.points[0])*np.cross(self.vector[3],P-self.points[1])<=0:
                 self.senseP[0,:]=self.points[3]
                 self.senseP[1,:]=self.points[2]
+                self.flag_side=True
             elif np.cross(self.vector[2],P-self.points[0])>0:
                 self.senseP[0,:]=self.points[0]
                 self.senseP[1,:]=self.points[2]
+                self.flag_side=False
             else:
                 self.senseP[0,:]=self.points[3]
                 self.senseP[1,:]=self.points[1]
+                self.flag_side=False
+
     def EGO(self,P):
         if np.cross(self.vector[0],P-self.points[0])*np.cross(self.vector[1],P-self.points[3])<=0 and np.cross(self.vector[2],P-self.points[0])*np.cross(self.vector[3],P-self.points[1])<=0:
             self.flag_in=True
@@ -83,44 +93,100 @@ class Rectangle:
         if self.flag_in is True:
             min_value=-min_value
         return [min_value,p[min_index,:]]
+    
+def calculate_angle(point, vertex1, vertex2):
+    # 计算给定点与两个顶点形成的向量之间的夹角
+    x1 = vertex1[0] - point[0]
+    y1 = vertex1[1] - point[1]
+    x2 = vertex2[0] - point[0]
+    y2 = vertex2[1] - point[1]
+    dot_product = x1*x2 + y1*y2
+    norm_a = math.sqrt(x1**2 + y1**2)
+    norm_b = math.sqrt(x2**2 + y2**2)
+    return math.acos(dot_product / (norm_a * norm_b))
+
+def max_angle(point, polygon):
+    # 计算一个点与多边形的顶点的最大夹角
+    max_angle = -math.inf
+    for i in range(len(polygon)-1):
+        for j in range(i+1,len(polygon)):
+            angle = calculate_angle(point, polygon[i], polygon[(j)%len(polygon)])
+            if angle > max_angle:
+                max_angle = angle
+    return max_angle
 
 R=Rectangle()
-x = np.linspace(20, 100, 20)
-y = np.linspace(20, 100, 20)
+x = np.linspace(30, 90, 120)
+y = np.linspace(30, 90, 120)
 Ctheta = np.zeros((len(x), len(y)))
 dCtheta=np.zeros((len(x), len(y)))
 Ctanh = np.zeros((len(x), len(y)))
 dCtanh=np.zeros((len(x), len(y)))
 dCtanh2=np.zeros((len(x), len(y)))
+F=np.zeros((len(x), len(y)))
 EGOJ=np.zeros((len(x), len(y)))
+APF=np.zeros((len(x), len(y)))
 Sf=0.5
 Smin=0.2
-sf=15
+sf=20
 for i in range(len(x)):
     for j in range(len(y)):
         V = np.array([x[i], y[j]])
         R.calculateP(V)
+        if R.flag_side is True:
+            K=3 # range 2/3 pi ~ pi
+        else:
+            K=6 # range pi/3~pi/2
         [d,points]=R.EGO(V)
+        
+        
         c=sf-d
         if c<=0:
             EGOJ[i,j]=0
+            APF[i,j]=0
         elif c>0 and c<=sf:
             EGOJ[i,j]=c**3
+            APF[i,j]=0.5*(1/sf-1/d)**2
         else:
             EGOJ[i,j]=3*sf*c**2-3*sf**2*c+sf**3
         if R.flag_in is False:
-            Ctheta[i,j]= np.dot(R.senseP[0,:] - V, R.senseP[1,:]  - V) / np.linalg.norm(R.senseP[0,:] - V) / np.linalg.norm(R.senseP[1,:]  - V)
+            # Ctheta[i,j]= np.dot(R.senseP[0,:] - V, R.senseP[1,:]  - V) / np.linalg.norm(R.senseP[0,:] - V) / np.linalg.norm(R.senseP[1,:]  - V)
+            Ctheta[i,j]=math.cos(max_angle(V, R.points))
+            l1=np.linalg.norm(R.senseP[0,:] - V)
+            l2=np.linalg.norm(R.senseP[1,:] - V)
+            z1=(R.senseP[0,:] - V)/ l1
+            z2=(R.senseP[1,:] - V) / l2
+            dCtheta_vector=(1/l2-Ctheta[i,j]/l1)*z1+(1/l1-Ctheta[i,j]/l2)*z2
+                 
+            if R.flag_side is True:
+                if Ctheta[i,j]>0:
+                    F[i,j]=-1
+                    dCtheta[i,j]=0
+                elif Ctheta[i,j]<-0.5:
+                    F[i,j]=1
+                    dCtheta[i,j]=0
+                else:
+                    F[i,j]=-3*Ctheta[i,j]+4*Ctheta[i,j]**3
+                    dCtheta[i,j]=-(3-12*Ctheta[i,j]**2)*np.linalg.norm(dCtheta_vector)  
+                    # F[i,j]=-(-1+2*Ctheta[i,j]**2)*(16*Ctheta[i,j]**4-16*Ctheta[i,j]**2+1)
+                    # dCtheta[i,j]=-(4*Ctheta[i,j]*(16*Ctheta[i,j]**4-16*Ctheta[i,j]**2+1)+(2*Ctheta[i,j]**2-1)*(16*4*Ctheta[i,j]**3-32*Ctheta[i,j]))*np.linalg.norm(dCtheta_vector)   
+            else:
+                if Ctheta[i,j]>0.5:
+                    F[i,j]=-1
+                    dCtheta[i,j]=0
+                elif Ctheta[i,j]<0:
+                    F[i,j]=1
+                    dCtheta[i,j]=0
+                else:
+                    F[i,j]=-(-1+2*Ctheta[i,j]**2)*(16*Ctheta[i,j]**4-16*Ctheta[i,j]**2+1)
+                    dCtheta[i,j]=-(4*Ctheta[i,j]*(16*Ctheta[i,j]**4-16*Ctheta[i,j]**2+1)+(2*Ctheta[i,j]**2-1)*(16*4*Ctheta[i,j]**3-32*Ctheta[i,j]))*np.linalg.norm(dCtheta_vector)   
+            
         else:
-            Ctheta[i,j]=-1
-        Ctanh[i,j]=math.tanh(3/(Sf-Smin)*(Ctheta[i,j]-Smin))
-        l1=np.linalg.norm(R.senseP[0,:] - V)
-        l2=np.linalg.norm(R.senseP[1,:] - V)
-        z1=(R.senseP[0,:] - V)/ l1
-        z2=(R.senseP[1,:] - V) / l2
-        dCtheta_vector=(1/l2-Ctheta[i,j]/l1)*z1+(1/l1-Ctheta[i,j]/l2)*z2
-        dCtheta[i,j]=np.linalg.norm(dCtheta_vector)
-        dCtanh[i,j]=3/(Sf-Smin)*(1-np.square(Ctanh[i,j]))*dCtheta[i,j]
-        dCtanh2[i,j]=3/(Sf-Smin)*(1-np.square(math.tanh(2)))*dCtheta[i,j]
+            F[i,j]=1
+        # Ctanh[i,j]=math.tanh(3/(Sf-Smin)*(Ctheta[i,j]-Smin))
+
+        # dCtanh[i,j]=3/(Sf-Smin)*(1-np.square(Ctanh[i,j]))*dCtheta[i,j]
+        # dCtanh2[i,j]=3/(Sf-Smin)*(1-np.square(math.tanh(2)))*dCtheta[i,j]
 # Create a meshgrid
 X, Y = np.meshgrid(x, y)
 
@@ -131,12 +197,26 @@ Ctheta_t=np.transpose(dCtheta)
 # Ctheta_t = np.transpose(dCtanh)
 # Ctheta_t = np.transpose(dCtanh2)
 # Ctheta_t = np.transpose(EGOJ)
+F_t = np.transpose(F)
+APF_t=np.transpose(APF)
 
 # Create the figure and plot the mesh
 fig = plt.figure()
 ax = plt.axes(projection='3d')
-ax.plot_surface(X, Y, Ctheta_t,cmap='viridis', edgecolor='none')
-ax.set_title(' tanh cos')
+ax.plot_surface(X, Y, F_t,cmap='viridis', edgecolor='none')
+ax.set_title('avoidance term')
+
+# fig = plt.figure()
+# ax = plt.axes(projection='3d')
+# ax.plot_surface(X, Y, Ctheta_t,cmap='viridis', edgecolor='none')
+# ax.set_title('pushing force')
 # ax.set_title('tanhcos')
 # ax.set_title('derivative of tanhcos')
+
+
+# fig = plt.figure()
+# ax = plt.axes(projection='3d')
+# ax.plot_surface(X, Y, APF_t,cmap='viridis', edgecolor='none')
+# ax.set_title('APF')
+
 plt.show()

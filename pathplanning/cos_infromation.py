@@ -28,6 +28,7 @@ class Rectangle:
         self.points = np.array([[50, 50], [80, 50], [80, 70], [50, 70]])
         self.senseP=np.zeros((2,2))
         self.flag_in=True
+        self.flag_side=True
         self.vector=[]
         self.vector.append(self.points[1]-self.points[0])
         self.vector.append(self.points[2]-self.points[3])
@@ -42,32 +43,41 @@ class Rectangle:
                 self.flag_in=False
                 self.senseP[0,:]=self.points[0]
                 self.senseP[1,:]=self.points[3]
+                self.flag_side=True
             else:
                 self.flag_in=False
                 self.senseP[0,:]=self.points[1]
                 self.senseP[1,:]=self.points[2]
+                self.flag_side=True
         elif np.cross(self.vector[0],P-self.points[0])<0:
             self.flag_in=False
             if np.cross(self.vector[2],P-self.points[0])*np.cross(self.vector[3],P-self.points[1])<=0:
                 self.senseP[0,:]=self.points[0]
                 self.senseP[1,:]=self.points[1]
+                self.flag_side=True
             elif np.cross(self.vector[2],P-self.points[0])>0:
                 self.senseP[0,:]=self.points[3]
                 self.senseP[1,:]=self.points[1]
+                self.flag_side=False
             else:
                 self.senseP[0,:]=self.points[2]
                 self.senseP[1,:]=self.points[0]
+                self.flag_side=False
         else:
             self.flag_in=False
             if np.cross(self.vector[2],P-self.points[0])*np.cross(self.vector[3],P-self.points[1])<=0:
                 self.senseP[0,:]=self.points[3]
                 self.senseP[1,:]=self.points[2]
+                self.flag_side=True
             elif np.cross(self.vector[2],P-self.points[0])>0:
                 self.senseP[0,:]=self.points[0]
                 self.senseP[1,:]=self.points[2]
+                self.flag_side=False
             else:
                 self.senseP[0,:]=self.points[3]
                 self.senseP[1,:]=self.points[1]
+                self.flag_side=False
+
     def EGO(self,P):
         if np.cross(self.vector[0],P-self.points[0])*np.cross(self.vector[1],P-self.points[3])<=0 and np.cross(self.vector[2],P-self.points[0])*np.cross(self.vector[3],P-self.points[1])<=0:
             self.flag_in=True
@@ -85,13 +95,14 @@ class Rectangle:
         return [min_value,p[min_index,:]]
 
 R=Rectangle()
-x = np.linspace(20, 100, 20)
-y = np.linspace(20, 100, 20)
+x = np.linspace(20, 100, 80)
+y = np.linspace(20, 100, 80)
 Ctheta = np.zeros((len(x), len(y)))
 dCtheta=np.zeros((len(x), len(y)))
 Ctanh = np.zeros((len(x), len(y)))
 dCtanh=np.zeros((len(x), len(y)))
 dCtanh2=np.zeros((len(x), len(y)))
+F=np.zeros((len(x), len(y)))
 EGOJ=np.zeros((len(x), len(y)))
 Sf=0.5
 Smin=0.2
@@ -100,6 +111,10 @@ for i in range(len(x)):
     for j in range(len(y)):
         V = np.array([x[i], y[j]])
         R.calculateP(V)
+        if R.flag_side is True:
+            K=3 # range 2/3 pi ~ pi
+        else:
+            K=6 # range pi/3~pi/2
         [d,points]=R.EGO(V)
         c=sf-d
         if c<=0:
@@ -110,17 +125,41 @@ for i in range(len(x)):
             EGOJ[i,j]=3*sf*c**2-3*sf**2*c+sf**3
         if R.flag_in is False:
             Ctheta[i,j]= np.dot(R.senseP[0,:] - V, R.senseP[1,:]  - V) / np.linalg.norm(R.senseP[0,:] - V) / np.linalg.norm(R.senseP[1,:]  - V)
+            l1=np.linalg.norm(R.senseP[0,:] - V)
+            l2=np.linalg.norm(R.senseP[1,:] - V)
+            z1=(R.senseP[0,:] - V)/ l1
+            z2=(R.senseP[1,:] - V) / l2
+            dCtheta_vector=(1/l2-Ctheta[i,j]/l1)*z1+(1/l1-Ctheta[i,j]/l2)*z2
+                 
+            if R.flag_side is True:
+                if Ctheta[i,j]>0.5:
+                    F[i,j]=-1
+                    dCtheta[i,j]=0
+                elif Ctheta[i,j]<0:
+                    F[i,j]=1
+                    dCtheta[i,j]=0
+                else:
+                    # F[i,j]=3*Ctheta[i,j]-4*Ctheta[i,j]**3
+                    dCtheta[i,j]=(3-12*Ctheta[i,j]**2)*np.linalg.norm(dCtheta_vector)  
+                    F[i,j]=-(-1+2*Ctheta[i,j]**2)*(16*Ctheta[i,j]**4-16*Ctheta[i,j]**2+1)
+                    dCtheta[i,j]=-(4*Ctheta[i,j]*(16*Ctheta[i,j]**4-16*Ctheta[i,j]**2+1)+(2*Ctheta[i,j]**2-1)*(16*4*Ctheta[i,j]**3-32*Ctheta[i,j]))*np.linalg.norm(dCtheta_vector)   
+            else:
+                if Ctheta[i,j]>math.sqrt(3)/2:
+                    F[i,j]=-1
+                    dCtheta[i,j]=0
+                elif Ctheta[i,j]<0.5:
+                    F[i,j]=1
+                    dCtheta[i,j]=0
+                else:
+                    F[i,j]=(-1+2*Ctheta[i,j]**2)*(16*Ctheta[i,j]**4-16*Ctheta[i,j]**2+1)
+                    dCtheta[i,j]=(4*Ctheta[i,j]*(16*Ctheta[i,j]**4-16*Ctheta[i,j]**2+1)+(2*Ctheta[i,j]**2-1)*(16*4*Ctheta[i,j]**3-32*Ctheta[i,j]))*np.linalg.norm(dCtheta_vector)   
+            
         else:
-            Ctheta[i,j]=-1
-        Ctanh[i,j]=math.tanh(3/(Sf-Smin)*(Ctheta[i,j]-Smin))
-        l1=np.linalg.norm(R.senseP[0,:] - V)
-        l2=np.linalg.norm(R.senseP[1,:] - V)
-        z1=(R.senseP[0,:] - V)/ l1
-        z2=(R.senseP[1,:] - V) / l2
-        dCtheta_vector=(1/l2-Ctheta[i,j]/l1)*z1+(1/l1-Ctheta[i,j]/l2)*z2
-        dCtheta[i,j]=np.linalg.norm(dCtheta_vector)
-        dCtanh[i,j]=3/(Sf-Smin)*(1-np.square(Ctanh[i,j]))*dCtheta[i,j]
-        dCtanh2[i,j]=3/(Sf-Smin)*(1-np.square(math.tanh(2)))*dCtheta[i,j]
+            F[i,j]=1
+        # Ctanh[i,j]=math.tanh(3/(Sf-Smin)*(Ctheta[i,j]-Smin))
+
+        # dCtanh[i,j]=3/(Sf-Smin)*(1-np.square(Ctanh[i,j]))*dCtheta[i,j]
+        # dCtanh2[i,j]=3/(Sf-Smin)*(1-np.square(math.tanh(2)))*dCtheta[i,j]
 # Create a meshgrid
 X, Y = np.meshgrid(x, y)
 
@@ -131,12 +170,18 @@ Ctheta_t=np.transpose(dCtheta)
 # Ctheta_t = np.transpose(dCtanh)
 # Ctheta_t = np.transpose(dCtanh2)
 # Ctheta_t = np.transpose(EGOJ)
+F_t = np.transpose(F)
 
 # Create the figure and plot the mesh
+# fig = plt.figure()
+# ax = plt.axes(projection='3d')
+# ax.plot_surface(X, Y, F_t,cmap='viridis', edgecolor='none')
+# ax.set_title('avoidance term')
+
 fig = plt.figure()
 ax = plt.axes(projection='3d')
 ax.plot_surface(X, Y, Ctheta_t,cmap='viridis', edgecolor='none')
-ax.set_title(' tanh cos')
-# ax.set_title('tanhcos')
-# ax.set_title('derivative of tanhcos')
+ax.set_title('pushing force')
+ax.set_title('tanhcos')
+ax.set_title('derivative of tanhcos')
 plt.show()
